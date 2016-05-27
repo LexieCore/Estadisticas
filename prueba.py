@@ -13,52 +13,59 @@ from collections import OrderedDict
 from pyexcel_xlsx import save_data
 
 
-restore = pickle.load(open('results.p', 'rb'))
 
 
+class Stats:
+    """Produce stats per user """
+    def __init__(self):
+        self.restore = pickle.load(open('results.p', 'rb'))
+
+    def get_users(self):
+        '''Abre un archivo .xlsx y obtiene las dos columnas (usuario y fecha) obtiene los datos de before during y after del evento'''
+        data = excel.get_records(file_name=sys.argv[1])
+        users = {}
+        for record in data:
+            event = record['Date']
+            usname = record['Screenname']
+            if not users.has_key(usname):
+                users.update({usname:event})
+        return users
 
 
-def get_users():
-    '''Abre un archivo .xlsx y obtiene las dos columnas (usuario y fecha) obtiene los datos de before during y after del evento'''
-    data = excel.get_records(file_name=sys.argv[1])
-    users = {}
-    for record in data:
-        event = record['Date']
-        usname = record['Screenname']
-        if not users.has_key(usname):
-            users.update({usname:event})
-    return users
+    def create_table(self,users,record):
+        '''Crea un archivos .xlsx que contienen estadisticas (mediana y promedio) por usuario'''
+        data = OrderedDict()
+        spread = [["User", "Before", "During", "After"]]
+        for user in users:
+            try:
+                b = self.restore[user]["%s_before"%record]
+                d = self.restore[user]["%s_during"%record]
+                a = self.restore[user]["%s_after"%record]
+                spread.append([user, b, d,a])
+            except KeyError:
+                pass
+        spread.append(["Average", "=AVERAGE(B2:B297)", "=AVERAGE(C2:C297)","=AVERAGE(D2:D297)"])
+        spread.append(["Median", "=MEDIAN(B2:B297)", "=MEDIAN(C2:C297)","=MEDIAN(D2:D297)"])
+        data.update({"Sheet 1": spread})
 
+        save_data("results/%s.xlsx"%record, data)
 
-def create_table(users,record):
-    data = OrderedDict()
-    spread = [["User", "Before", "During", "After"]]
-    for user in users:
-        try:
-            b = restore[user]["%s_before"%record]
-            d = restore[user]["%s_during"%record]
-            a = restore[user]["%s_after"%record]
-            spread.append([user, b, d,a])
-        except KeyError:
-            pass
-    data.update({"Sheet 1": spread})
+    def print_data(self,user):
+        '''Imprime los datos por cada usuario'''
+        print colored(user,"cyan")
 
-    save_data("results/%s.xlsx"%record, data)
+        for record in records:
+            try:
+                print colored(record,"magenta")
+                print self.restore[user]["%s_before"%record]
+                print self.restore[user]["%s_during"%record]
+                print self.restore[user]["%s_after"%record]
+            except KeyError:
+                pass
 
-def print_data(user):
-    print colored(user,"cyan")
-
+if __name__ == '__main__':
+    records = ["hashtags","mentions","replies","retweets","status"]
+    s = Stats()
     for record in records:
-        try:
-            print colored(record,"magenta")
-            print restore[user]["%s_before"%record]
-            print restore[user]["%s_during"%record]
-            print restore[user]["%s_after"%record]
-        except KeyError:
-            pass
-
-
-records = ["hashtags","mentions","replies","retweets","status"]
-for record in records:
-    users = get_users()
-    create_table(users,record)
+        users = s.get_users()
+        s.create_table(users,record)
